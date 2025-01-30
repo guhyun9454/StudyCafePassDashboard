@@ -73,7 +73,7 @@ if uploaded_file is not None:
         # 📅 현재 날짜
         today = datetime.today().date()
 
-        # 📌 사이드바에서 옵션 추가
+       # ✅ "같은 사람 한 줄에 보기" 활성화 여부 확인
         group_by_user = st.sidebar.checkbox("같은 사람 한 줄에 보기", value=True)
         show_expired = st.sidebar.checkbox("만료된 기간권 보기", value=False)
 
@@ -81,11 +81,10 @@ if uploaded_file is not None:
         timeline_df = df_paid[df_paid["구분"] == title_map[page]].copy()
         timeline_events = []
 
-        groups = [{"id": idx, "content": name} for idx, name in enumerate(timeline_df["이름"].unique())]
-
         # 📌 D-Day 데이터 저장
         dday_counts = {}  # D-Day별 인원수 저장
         future_count = 0   # D-Day가 0 이상인 회원 수
+        valid_users = set()  # ✅ 실제 타임라인 이벤트가 있는 사용자만 저장
 
         for _, row in timeline_df.iterrows():
             start_date, end_date = extract_dates(row["주문명"])
@@ -96,11 +95,10 @@ if uploaded_file is not None:
 
                 # ✅ 기간권 주 수 계산
                 weeks = ((end_date_obj - start_date_obj).days + 1) // 7
-                # ✅ D-Day 계산 (만료된 경우 `D+`로 변경)
+
+                # ✅ D-Day 계산
                 d_day_value = (end_date_obj - today).days
                 d_day = f"D+{abs(d_day_value)}" if d_day_value < 0 else f"D-{d_day_value}"
-
-                
 
                 # ✅ D-Day가 0 이상인 회원 수 카운트
                 if d_day_value >= 0:
@@ -114,12 +112,24 @@ if uploaded_file is not None:
                 if show_expired or end_date_obj >= today:
                     event = {
                         "id": int(row["No"]),
-                        "group": next((g["id"] for g in groups if g["content"] == row["이름"]), None) if group_by_user else None,
-                        "content": f"{row['이름']}: {weeks}주 ({d_day})",  # ✅ 만료된 경우 `D+` 적용
+                        "name": row["이름"],
+                        "content": f"{row['이름']}: {weeks}주 ({d_day})",  
                         "start": start_date,
                         "end": end_date,
+                        "d_day_value": d_day_value
                     }
                     timeline_events.append(event)
+                    valid_users.add(row["이름"])  # ✅ 실제 표시할 데이터가 있는 사용자만 그룹으로 포함
+
+        # ✅ 빈 그룹 문제 해결: 유효한 사용자만 그룹으로 포함
+        if group_by_user and valid_users:
+            groups = [{"id": idx, "content": name} for idx, name in enumerate(valid_users)]
+            user_id_map = {g["content"]: g["id"] for g in groups}  # ✅ 사용자 이름 → ID 매핑
+
+            for event in timeline_events:
+                event["group"] = user_id_map[event["name"]]  # ✅ 그룹 ID 적용
+        else:
+            groups = []
 
         # 📌 D-Day가 0 이상인 회원 수 표시
         st.metric("기간 남은 회원 수", f"{future_count} 명")
