@@ -74,6 +74,7 @@ if uploaded_file is not None:
         today = datetime.today().date()
 
        # ✅ "같은 사람 한 줄에 보기" 활성화 여부 확인
+        st.sidebar.subheader("📌 타임라인 옵션")
         group_by_user = st.sidebar.checkbox("같은 사람 한 줄에 보기", value=True)
         show_expired = st.sidebar.checkbox("만료된 기간권 보기", value=False)
 
@@ -234,7 +235,7 @@ if uploaded_file is not None:
     elif page == "📈 매출":
 
         # 총 매출 (결제완료된 주문만 포함)
-        st.title("📈 매출 정산 내역")
+        st.title("📈 매출 현황")
         total_sales = df_paid["합계금액"].sum()
         nicepay_fee = total_sales * 0.033
         royalty_fee = total_sales * 0.05
@@ -247,7 +248,7 @@ if uploaded_file is not None:
 
         # 📌 "구분"별 매출 표시
         st.divider()
-        st.title("📌 종류별 매출")
+        st.title("📌 종류별 매출 현황")
         # 📌 "구분"별 매출 계산
         category_sales = df_paid.groupby("구분")["합계금액"].sum()  
         col3, col4 = st.columns(2)
