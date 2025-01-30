@@ -77,6 +77,10 @@ if uploaded_file is not None:
 
         groups = [{"id": idx, "content": name} for idx, name in enumerate(timeline_df["이름"].unique())]
 
+        # 📌 D-Day 데이터 저장
+        dday_counts = {}  # D-Day별 인원수 저장
+        future_count = 0   # D-Day가 0 이상인 회원 수
+
         for _, row in timeline_df.iterrows():
             start_date, end_date = extract_dates(row["주문명"])
 
@@ -90,6 +94,16 @@ if uploaded_file is not None:
                 d_day_value = (end_date_obj - today).days
                 d_day = f"D+{abs(d_day_value)}" if d_day_value < 0 else f"D-{d_day_value}"
 
+                
+
+                # ✅ D-Day가 0 이상인 회원 수 카운트
+                if d_day_value >= 0:
+                    future_count += 1
+                    # ✅ D-Day별 인원수 저장
+                    if d_day_value not in dday_counts:
+                        dday_counts[d_day_value] = 0
+                    dday_counts[d_day_value] += 1
+
                 # ✅ 만료된 기간권 필터링
                 if show_expired or end_date_obj >= today:
                     event = {
@@ -100,6 +114,9 @@ if uploaded_file is not None:
                         "end": end_date,
                     }
                     timeline_events.append(event)
+
+        # 📌 D-Day가 0 이상인 회원 수 표시
+        st.metric("기간 남은 회원 수", f"{future_count} 명")
 
         # 📌 타임라인 표시
         if timeline_events:
@@ -127,6 +144,71 @@ if uploaded_file is not None:
                     st.sidebar.warning("🚨 선택한 주문 정보를 찾을 수 없습니다.")
         else:
             st.warning(f"🚨 현재 유효한 {title_map[page]} 이용 내역이 없습니다.")
+        
+        def categorize_dday(d_day_value):
+            if d_day_value < 5:
+                return "0~4"
+            elif d_day_value < 10:
+                return "5~9"
+            elif d_day_value < 15:
+                return "10~14"
+            elif d_day_value < 20:
+                return "15~19"
+            elif d_day_value < 25:
+                return "20~24"
+            elif d_day_value < 30:
+                return "25~29"
+            else:
+                return "30+"
+
+        import altair as alt
+
+        # 📌 D-Day 구간 설정 함수 (5명 단위)
+        def categorize_dday(d_day_value):
+            if d_day_value < 5:
+                return "0~4"
+            elif d_day_value < 10:
+                return "5~9"
+            elif d_day_value < 15:
+                return "10~14"
+            elif d_day_value < 20:
+                return "15~19"
+            elif d_day_value < 25:
+                return "20~24"
+            elif d_day_value < 30:
+                return "25~29"
+            else:
+                return "30+"
+
+        # 📌 D-Day 구간별 카운트 저장
+        dday_binned_counts = {}
+
+        for d_day_value, count in dday_counts.items():
+            bin_label = categorize_dday(d_day_value)  # ✅ D-Day를 5명 단위로 그룹화
+            if bin_label not in dday_binned_counts:
+                dday_binned_counts[bin_label] = 0
+            dday_binned_counts[bin_label] += count
+
+        # 📌 D-Day 히스토그램 데이터프레임 생성 (정렬 순서 추가)
+        dday_hist_df = pd.DataFrame(list(dday_binned_counts.items()), columns=["D-Day Group", "Count"])
+
+        # ✅ D-Day 그룹을 올바른 순서로 정렬하기 위한 순서 지정
+        dday_hist_df["Sort Order"] = dday_hist_df["D-Day Group"].map({
+            "0~4": 1, "5~9": 2, "10~14": 3, "15~19": 4, "20~24": 5, "25~29": 6, "30+": 7
+        })
+        dday_hist_df = dday_hist_df.sort_values("Sort Order")  # ✅ 숫자 순서대로 정렬
+
+        # 📌 D-Day 히스토그램 그래프
+        st.subheader("📊 D-Day별 회원 수 (5명 단위)")
+        chart = alt.Chart(dday_hist_df).mark_bar().encode(
+            x=alt.X("D-Day Group:N", title="D-Day 구간", sort=list(dday_hist_df["D-Day Group"])),  # ✅ 정렬 순서 적용
+            y=alt.Y("Count:Q", title="회원 수"),
+            tooltip=["D-Day Group", "Count"]
+        ).properties(width=800, height=400)
+
+        st.altair_chart(chart)
+
+
 
     # 📈 매출 페이지
     elif page == "📈 매출":
