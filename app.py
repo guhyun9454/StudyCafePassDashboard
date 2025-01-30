@@ -117,6 +117,7 @@ if uploaded_file is not None:
                         "start": start_date,
                         "end": end_date,
                         "d_day_value": d_day_value,
+                        "weeks" : weeks,
                         "style": "background-color: pink; color: black; border-color: red" if end_date_obj < today else ""
                     }
                     timeline_events.append(event)
@@ -146,17 +147,19 @@ if uploaded_file is not None:
 
                 if not selected_row.empty:
                     selected_row = selected_row.iloc[0]
+                    selected_event = next((event for event in timeline_events if event["id"] == selected_id), None)
 
                     # 📌 사이드바에 선택된 항목 정보 표시
                     st.sidebar.subheader("📌 선택된 항목 상세 정보")
                     st.sidebar.markdown(f"### 🆔 No: {selected_id}")
                     st.sidebar.markdown(f"**👤 이름:** {selected_row['이름']}")
-                    st.sidebar.markdown(f"**📌 구분:** {selected_row['구분']}")
-                    st.sidebar.markdown(f"**📝 주문명:** {selected_row['주문명']}")
+                    st.sidebar.markdown(f"**📅 기간:** {selected_event['weeks']}주")
                     st.sidebar.markdown(f"**💰 합계금액:** {int(selected_row['합계금액']):,} 원")
+                    st.sidebar.markdown(f"**⏳ 남은 일수:** {selected_event['d_day_value']}일") 
+                    st.sidebar.markdown(f"**📅 주문일시:** {selected_row['주문일시']}")
+                    st.sidebar.markdown(f"**📝 주문명:** {selected_row['주문명']}")
                     st.sidebar.markdown(f"**💳 결제구분:** {selected_row['결제구분']}")
                     st.sidebar.markdown(f"**🛒 주문유형:** {selected_row['주문유형']}")
-                    st.sidebar.markdown(f"**📅 주문일시:** {selected_row['주문일시']}")
                 else:
                     st.sidebar.warning("🚨 선택한 주문 정보를 찾을 수 없습니다.")
         else:
