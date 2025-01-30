@@ -75,47 +75,31 @@ if uploaded_file is not None:
         timeline_df = df_paid[df_paid["구분"] == title_map[page]].copy()
         timeline_events = []
 
-        if group_by_user:
-            # ✅ 같은 사람 한 줄에 보기 (사용자 이름을 그룹화)
-            groups = [{"id": idx, "content": name} for idx, name in enumerate(timeline_df["이름"].unique())]
+        groups = [{"id": idx, "content": name} for idx, name in enumerate(timeline_df["이름"].unique())]
 
-            for _, row in timeline_df.iterrows():
-                start_date, end_date = extract_dates(row["주문명"])
+        for _, row in timeline_df.iterrows():
+            start_date, end_date = extract_dates(row["주문명"])
 
-                if start_date and end_date:
-                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+            if start_date and end_date:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
 
-                    # 만료된 기간권 필터링
-                    if show_expired or end_date_obj >= today:
-                        d_day = (end_date_obj - today).days
-                        event = {
-                            "id": int(row["No"]),
-                            "group": next((g["id"] for g in groups if g["content"] == row["이름"]), None),
-                            "content": f"{row['이름']}: (D-{d_day})",
-                            "start": start_date,
-                            "end": end_date,
-                        }
-                        timeline_events.append(event)
+                # ✅ 기간권 주 수 계산
+                weeks = ((end_date_obj - start_date_obj).days + 1) // 7
+                # ✅ D-Day 계산 (만료된 경우 `D+`로 변경)
+                d_day_value = (end_date_obj - today).days
+                d_day = f"D+{abs(d_day_value)}" if d_day_value < 0 else f"D-{d_day_value}"
 
-        else:
-            # ✅ 기본 타임라인 (그룹 없이 개별로 표시)
-            groups = []
-            for _, row in timeline_df.iterrows():
-                start_date, end_date = extract_dates(row["주문명"])
-
-                if start_date and end_date:
-                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-
-                    # 만료된 기간권 필터링
-                    if show_expired or end_date_obj >= today:
-                        d_day = (end_date_obj - today).days
-                        event = {
-                            "id": int(row["No"]),
-                            "content": f"{row['이름']}: (D-{d_day})",
-                            "start": start_date,
-                            "end": end_date,
-                        }
-                        timeline_events.append(event)
+                # ✅ 만료된 기간권 필터링
+                if show_expired or end_date_obj >= today:
+                    event = {
+                        "id": int(row["No"]),
+                        "group": next((g["id"] for g in groups if g["content"] == row["이름"]), None) if group_by_user else None,
+                        "content": f"{row['이름']}: {weeks}주 ({d_day})",  # ✅ 만료된 경우 `D+` 적용
+                        "start": start_date,
+                        "end": end_date,
+                    }
+                    timeline_events.append(event)
 
         # 📌 타임라인 표시
         if timeline_events:
