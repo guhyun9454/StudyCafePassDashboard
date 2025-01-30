@@ -66,40 +66,68 @@ if uploaded_file is not None:
 
         # 📅 현재 날짜
         today = datetime.today().date()
-        st.info(f"오늘 날짜 (**{today}**)를 기준으로 **만료된 기간권은 제외**되었습니다.")
 
-        # 📌 타임라인 데이터 생성 (만료된 데이터 제외 + 남은 D-Day 추가)
+        # 📌 사이드바에서 옵션 추가
+        group_by_user = st.sidebar.checkbox("같은 사람 한 줄에 보기", value=True)
+        show_expired = st.sidebar.checkbox("만료된 기간권 보기", value=False)
+
+        # 📌 타임라인 데이터 생성 (만료된 데이터 선택적으로 제외)
         timeline_df = df_paid[df_paid["구분"] == title_map[page]].copy()
         timeline_events = []
-        for _, row in timeline_df.iterrows():
-            start_date, end_date = extract_dates(row["주문명"])
-            
-            if start_date and end_date:
-                # 문자열을 datetime.date로 변환
-                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
 
-                if end_date_obj >= today:  # 현재 날짜보다 종료일이 이후인 경우만 포함
-                    # 남은 D-Day 계산
-                    d_day = (end_date_obj - today).days
-                    event = {
-                        "id": int(row["No"]),
-                        "content": f"{row['이름']}: (D-{d_day})",
-                        "start": start_date,
-                        "end": end_date,
-                    }
-                    timeline_events.append(event)
+        if group_by_user:
+            # ✅ 같은 사람 한 줄에 보기 (사용자 이름을 그룹화)
+            groups = [{"id": idx, "content": name} for idx, name in enumerate(timeline_df["이름"].unique())]
+
+            for _, row in timeline_df.iterrows():
+                start_date, end_date = extract_dates(row["주문명"])
+
+                if start_date and end_date:
+                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+                    # 만료된 기간권 필터링
+                    if show_expired or end_date_obj >= today:
+                        d_day = (end_date_obj - today).days
+                        event = {
+                            "id": int(row["No"]),
+                            "group": next((g["id"] for g in groups if g["content"] == row["이름"]), None),
+                            "content": f"{row['이름']}: (D-{d_day})",
+                            "start": start_date,
+                            "end": end_date,
+                        }
+                        timeline_events.append(event)
+
+        else:
+            # ✅ 기본 타임라인 (그룹 없이 개별로 표시)
+            groups = []
+            for _, row in timeline_df.iterrows():
+                start_date, end_date = extract_dates(row["주문명"])
+
+                if start_date and end_date:
+                    end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+                    # 만료된 기간권 필터링
+                    if show_expired or end_date_obj >= today:
+                        d_day = (end_date_obj - today).days
+                        event = {
+                            "id": int(row["No"]),
+                            "content": f"{row['이름']}: (D-{d_day})",
+                            "start": start_date,
+                            "end": end_date,
+                        }
+                        timeline_events.append(event)
 
         # 📌 타임라인 표시
         if timeline_events:
-            timeline = st_timeline(timeline_events, groups=[], options={}, height="600px")
+            timeline = st_timeline(timeline_events, groups=groups if group_by_user else [], options={}, height="600px")
 
             # 선택된 ID를 기반으로 데이터 출력
             if timeline:
-                selected_id = timeline["id"]  # 선택된 주문의 No 값
-                selected_row = df_paid[df_paid["No"] == selected_id]  # ✅ No 값과 일치하는 행 찾기
+                selected_id = timeline["id"]
+                selected_row = df_paid[df_paid["No"] == selected_id]
 
                 if not selected_row.empty:
-                    selected_row = selected_row.iloc[0]  # 첫 번째 결과 가져오기
+                    selected_row = selected_row.iloc[0]
 
                     # 📌 사이드바에 선택된 항목 정보 표시
                     st.sidebar.subheader("📌 선택된 항목 상세 정보")
