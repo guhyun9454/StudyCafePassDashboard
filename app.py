@@ -116,7 +116,8 @@ if uploaded_file is not None:
                         "content": f"{row['이름']}: {weeks}주 ({d_day})",  
                         "start": start_date,
                         "end": end_date,
-                        "d_day_value": d_day_value
+                        "d_day_value": d_day_value,
+                        "style": "background-color: pink; color: black; border-color: red" if end_date_obj < today else ""
                     }
                     timeline_events.append(event)
                     valid_users.add(row["이름"])  # ✅ 실제 표시할 데이터가 있는 사용자만 그룹으로 포함
@@ -136,7 +137,7 @@ if uploaded_file is not None:
 
         # 📌 타임라인 표시
         if timeline_events:
-            timeline = st_timeline(timeline_events, groups=groups if group_by_user else [], options={}, height="600px")
+            timeline = st_timeline(timeline_events, groups=groups if group_by_user else [], options={'orientation':'top'}, height="600px")
 
             # 선택된 ID를 기반으로 데이터 출력
             if timeline:
