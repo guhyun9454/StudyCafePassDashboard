@@ -6,18 +6,35 @@ import re
 from datetime import datetime
 
 # Streamlit 설정
-st.set_page_config(page_title="스터디 카페 대시보드", layout="wide")
+st.set_page_config(page_title="💳 결제 로그 분석", layout="wide")
+
+hide_menu_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_menu_style, unsafe_allow_html=True)
+
+
+
+if "df" not in st.session_state:
+    st.warning("🚨 먼저 홈에서 파일을 업로드해주세요.")
+    st.stop()
+
+# 🔄 **초기화 & 업로드 페이지로 이동하는 버튼**
+if st.sidebar.button("🔄 다시 업로드하기"):
+    st.session_state.clear()  # 세션 초기화
+    st.rerun()  # 업로드 페이지로 이동
 
 # 📌 사이드바에서 페이지 선택
-st.sidebar.title("📌 메뉴 선택")
+st.sidebar.title("📌 메뉴")
 page = st.sidebar.radio(
     "이동할 페이지를 선택하세요",
     ["📈 매출", "📅 기간권", "📅 사물함", "🏆 회원별 결제 금액"]
 )
 
-if "df" not in st.session_state:
-    st.warning("🚨 먼저 홈에서 파일을 업로드해주세요.")
-    st.stop()
 
 df = st.session_state["df"]
 
