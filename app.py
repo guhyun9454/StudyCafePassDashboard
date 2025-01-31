@@ -77,9 +77,17 @@ if uploaded_file is not None:
         st.sidebar.subheader("📌 타임라인 옵션")
         group_by_user = st.sidebar.checkbox("같은 사람 한 줄에 보기", value=True)
         show_expired = st.sidebar.checkbox("만료된 기간권 보기", value=False)
+        st.sidebar.divider()
+        search_name = st.sidebar.text_input("🔍 회원 검색 (이름 입력)", "")
+
 
         # 📌 타임라인 데이터 생성 (만료된 데이터 선택적으로 제외)
         timeline_df = df_paid[df_paid["구분"] == title_map[page]].copy()
+
+        # 📌 🔍 검색어가 입력되면 해당 이름이 포함된 데이터만 필터링
+        if search_name:
+            timeline_df = timeline_df[timeline_df["이름"].str.contains(search_name, case=False, na=False)]
+
         timeline_events = []
 
         # 📌 D-Day 데이터 저장
