@@ -1,17 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-# 페이지 설정
-st.set_page_config(page_title="스터디 카페 대시보드", layout="wide")
+from utils import init_page
+init_page("스터디 카페 대시보드")
 
-hide_menu_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    </style>
-"""
-st.markdown(hide_menu_style, unsafe_allow_html=True)
 
 
 st.title("📂 파일 업로드")
@@ -31,7 +23,6 @@ if uploaded_file is None:
         🔥 **주의 사항**
         
         - 전화번호 뒷자리가 같아 이름이 같은 경우 **같은 사람으로 집계될 수 있습니다.**
-        - 개별 회원을 구별하려면 픽코에서 **이름을 수동으로 수정**해야 합니다.
         """
     )
 

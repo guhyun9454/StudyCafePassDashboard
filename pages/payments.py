@@ -5,17 +5,8 @@ from streamlit_timeline import st_timeline
 import re
 from datetime import datetime
 
-# Streamlit 설정
-st.set_page_config(page_title="💳 결제 로그 분석", layout="wide")
-
-hide_menu_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    </style>
-"""
-st.markdown(hide_menu_style, unsafe_allow_html=True)
+from utils import categorize_dday, init_page
+init_page("💳 결제 로그 분석")
 
 
 
@@ -171,40 +162,7 @@ if page in ["📅 기간권", "📅 사물함"]:
     else:
         st.warning(f"🚨 현재 유효한 {title_map[page]} 이용 내역이 없습니다.")
     
-    def categorize_dday(d_day_value):
-        if d_day_value < 5:
-            return "0~4"
-        elif d_day_value < 10:
-            return "5~9"
-        elif d_day_value < 15:
-            return "10~14"
-        elif d_day_value < 20:
-            return "15~19"
-        elif d_day_value < 25:
-            return "20~24"
-        elif d_day_value < 30:
-            return "25~29"
-        else:
-            return "30+"
 
-    import altair as alt
-
-    # 📌 D-Day 구간 설정 함수 (5명 단위)
-    def categorize_dday(d_day_value):
-        if d_day_value < 5:
-            return "0~4"
-        elif d_day_value < 10:
-            return "5~9"
-        elif d_day_value < 15:
-            return "10~14"
-        elif d_day_value < 20:
-            return "15~19"
-        elif d_day_value < 25:
-            return "20~24"
-        elif d_day_value < 30:
-            return "25~29"
-        else:
-            return "30+"
 
     # 📌 D-Day 구간별 카운트 저장
     dday_binned_counts = {}
@@ -233,8 +191,6 @@ if page in ["📅 기간권", "📅 사물함"]:
     ).properties(width=800, height=400)
 
     st.altair_chart(chart)
-
-
 
 # 📈 매출 페이지
 elif page == "📈 매출":
