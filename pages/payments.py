@@ -5,6 +5,7 @@ from streamlit_timeline import st_timeline
 import re
 from datetime import datetime
 
+from events import process_order_row_extended
 from utils import categorize_dday, init_page
 init_page("💳 결제 로그 분석")
 
@@ -23,7 +24,7 @@ if st.sidebar.button("🔄 다시 업로드하기"):
 st.sidebar.title("📌 메뉴")
 page = st.sidebar.radio(
     "이동할 페이지를 선택하세요",
-    ["📈 매출", "📅 기간권", "📅 사물함", "🏆 회원별 결제 금액"]
+    ["📈 매출", "📅 기간권", "📅 사물함", "🏆 회원별 결제 금액","test"]
 )
 
 
@@ -249,3 +250,7 @@ elif page == "🏆 회원별 결제 금액":
     ).properties(width=800, height=600)
 
     st.altair_chart(chart)
+
+elif page == "test":
+    df_paid[["실제 이용시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"]] = df.apply(process_order_row_extended, axis=1)
+    st.write(df_paid)
