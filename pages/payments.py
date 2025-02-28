@@ -9,7 +9,10 @@ from events import process_order_row
 from utils import categorize_dday, init_page
 init_page("💳 결제 로그 분석")
 
-
+cols_to_show = [
+    "구분", "이름", "주문명", "합계금액", "결제구분", "주문유형", "주문일시",
+    "시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"
+]
 
 if "df" not in st.session_state:
     st.warning("🚨 먼저 홈에서 파일을 업로드해주세요.")
@@ -35,6 +38,7 @@ df["주문일시"] = pd.to_datetime(df["주문일시"], errors="coerce")
 
 # 📌 "결제완료" 상태의 주문만 필터링
 df_paid = df[(df["주문상태"] == "결제완료") & (df["이름"] != "관리자")]
+df_paid[["시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"]] = df.apply(process_order_row, axis=1)
 
 # 📌 데이터의 첫 주문일시 & 마지막 주문일시 감지
 min_date = df["주문일시"].min().date() if not df["주문일시"].isna().all() else None
@@ -207,7 +211,7 @@ elif page == "📈 매출":
     col2.metric("💳 3.3% 나이스페이 수수료", f"-{nicepay_fee:,.0f} 원")
     col1.metric("🏛️ 5% 로열티", f"-{royalty_fee:,.0f} 원")
     col2.metric("✅ 최종 정산 금액", f"{final_amount:,.0f} 원")
-
+    
     # 📌 "구분"별 매출 표시
     st.divider()
     st.title("📌 종류별 매출 현황")
@@ -236,6 +240,45 @@ elif page == "📈 매출":
     # 📌 차트 표시 (파이 차트 + 퍼센트 값)
     st.altair_chart(pie_chart)
 
+
+    # 이벤트별 매출 표시 (스택형 바 차트: 이벤트와 이벤트 의심 구분)
+    
+    st.divider()
+    st.title("📌 이벤트별 매출 현황")
+    st.info("🔍 기간권, 정액시간권만 집계됩니다.")
+    normal_sales = df_paid[df_paid["상품 유형"] == "정가"]["합계금액"].sum()
+    st.metric("✅ 정가 매출", f"{normal_sales:,.0f} 원")
+    event_df = df_paid[df_paid["이벤트명"].notnull()]
+    if not event_df.empty:
+        # 그룹별 매출 데이터 생성: 이벤트명, 상품 유형, 합계금액 합계
+        event_sales_detail = event_df.groupby(["이벤트명", "상품 유형"])["합계금액"].sum().reset_index()
+        # 각 이벤트별 총 매출 metric 표시
+        event_total_sales = event_df.groupby("이벤트명")["합계금액"].sum().reset_index()
+        for _, row in event_total_sales.iterrows():
+            st.metric(f"{row['이벤트명']} 이벤트 매출", f"{row['합계금액']:,.0f} 원")
+        # 스택형 바 차트: "이벤트"는 주황색, "이벤트 의심"은 빨간색으로 표시
+        chart_event = alt.Chart(event_sales_detail).mark_bar().encode(
+            x=alt.X("이벤트명:N", title="이벤트명"),
+            y=alt.Y("합계금액:Q", title="매출 (원)"),
+            color=alt.Color("상품 유형:N",
+                            scale=alt.Scale(domain=["이벤트", "이벤트 의심"],
+                                            range=["orange", "red"]),
+                            title="상품 유형"),
+            tooltip=["이벤트명", "상품 유형", "합계금액"]
+        ).properties(width=500, height=400)
+        st.altair_chart(chart_event)
+    else:
+        st.warning("🚨 이벤트 매출 데이터가 없습니다.")
+
+    suspected_df = df_paid[df_paid["상품 유형"] == "이벤트 의심"]
+    if not suspected_df.empty:
+        suspected_counts = suspected_df.groupby("이벤트명").size().reset_index(name="의심회원수")
+        for _, row in suspected_counts.iterrows():
+            st.warning(f"{row['이벤트명']} 이벤트 의심 회원 수: {row['의심회원수']} 명")
+
+        st.subheader("📌 이벤트 의심 상세 내역")
+        st.dataframe(suspected_df[cols_to_show])
+
 # 🏆 회원별 결제 금액 페이지
 elif page == "🏆 회원별 결제 금액":
     st.title("🏆 회원별 총 결제 금액 TOP 10")
@@ -252,9 +295,5 @@ elif page == "🏆 회원별 결제 금액":
     st.altair_chart(chart)
 
 elif page == "test":
-    df_paid[["시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"]] = df.apply(process_order_row, axis=1)
-    cols_to_show = [
-        "구분", "이름", "주문명", "합계금액", "결제구분", "주문유형", "주문일시",
-        "시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"
-    ]
+
     st.write(df_paid[cols_to_show])
