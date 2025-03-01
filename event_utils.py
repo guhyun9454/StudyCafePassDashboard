@@ -23,7 +23,7 @@ normal_prices = {
 
 # 2. 이벤트 상품
 event_configs = {
-    "24오픈": {
+    "241111오픈": {
         "이벤트기간": (datetime(2024, 11, 11), datetime(2024, 12, 31)),
         "정액시간권": {
             "100시간": {"이벤트상품": "110시간", "price": [135000]},
@@ -33,7 +33,7 @@ event_configs = {
             "8주": {"이벤트상품": "10주", "price": [2 * 150000, 2 * 250000]},
         },
     },
-    "25새해": {
+    "250101새해": {
         "이벤트기간": (datetime(2025, 1, 1), datetime(2025, 1, 31)),
         "정액시간권": {
             "50시간": {"이벤트상품": "55시간", "price": [85000]},
@@ -51,7 +51,7 @@ event_configs = {
             "36주": {"이벤트상품": "48주", "price": [9 * 150000, 9 * 250000]},
         },
     },
-    "25봄맞이": {
+    "250224봄맞이": {
         "이벤트기간": (datetime(2025, 2, 24), datetime(2025, 3, 16)),
         "정액시간권": {
             "100시간": {"이벤트상품": "110시간", "price": [135000]},
@@ -172,3 +172,54 @@ def find_closest_future_event(row):
                 closest_distance = diff
                 closest_event = event
     return closest_event, closest_distance
+
+def calc_normal_sales_estimate(event_name, normal_df, overall_start_date, overall_end_date):
+    """
+    전체 데이터 기간 중, 이벤트 기간을 전부 제외한 날에 발생한 정가 매출 평균을 계산한 후,
+    해당 이벤트 기간 일수만큼 곱하여 예상 정가 매출을 산출합니다.
+    
+    Parameters:
+        event_name (str): 이벤트 이름 (예: "25새해")
+        normal_df (DataFrame): 정가 매출 데이터 (정가 주문만 포함)
+        overall_start_date (date): 전체 데이터 기간의 시작일
+        overall_end_date (date): 전체 데이터 기간의 종료일
+        
+    Returns:
+        float: 이벤트 기간 동안의 예상 정가 매출
+    """
+    # 이벤트 기간 가져오기
+    if event_name not in event_configs:
+        raise ValueError(f"알 수 없는 이벤트 이름: {event_name}")
+    evt_start, evt_end = event_configs[event_name]["이벤트기간"]
+    evt_start_date = evt_start.date()
+    evt_end_date = evt_end.date()
+    event_duration = (evt_end_date - evt_start_date).days + 1
+
+    # 전체 데이터 기간의 일수 계산
+    overall_duration = (overall_end_date - overall_start_date).days + 1
+
+    # 전체 기간 중, 모든 이벤트 기간(중복 고려 없이)의 총 일수 계산
+    total_event_days = 0
+    for evt, config in event_configs.items():
+        evt_s, evt_e = config["이벤트기간"]
+        evt_s_date = evt_s.date()
+        evt_e_date = evt_e.date()
+        # 전체 기간과 해당 이벤트 기간의 교집합 일수 계산
+        overlap_start = max(overall_start_date, evt_s_date)
+        overlap_end = min(overall_end_date, evt_e_date)
+        if overlap_start <= overlap_end:
+            total_event_days += (overlap_end - overlap_start).days + 1
+
+    # 이벤트 기간을 제외한 날 수
+    non_event_days = overall_duration - total_event_days
+    if non_event_days <= 0:
+        return 0
+
+    # 정가 매출 총합과 일일 평균 정가 매출 계산
+    total_normal_sales = normal_df["합계금액"].sum()
+    avg_normal_sales_per_day = total_normal_sales / non_event_days
+
+    # 해당 이벤트 기간에 해당하는 예상 정가 매출 산출
+    estimated_normal_sales = avg_normal_sales_per_day * event_duration
+
+    return estimated_normal_sales , event_duration

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from events import process_order_row
 from utils import categorize_dday, init_page
+from event_utils import calc_normal_sales_estimate
 init_page("💳 결제 로그 분석")
 
 cols_to_show = [
@@ -241,7 +242,9 @@ elif page == "📈 매출":
     
     st.divider()
     st.title("📌 이벤트별 매출 현황")
-    st.info("🔍 기간권 (2주, 4주 등), 정액시간권(50시간, 100시간 등)만 집계됩니다.")
+    st.caption("🔍 기간권 (2주, 4주 등), 정액시간권(50시간, 100시간 등)만 집계됩니다.")
+    st.caption("💡 정가 매출 추정치는 전체 기간 중 이벤트가 없는 날의 평균 정가 매출을 기준으로, 해당 이벤트 기간 동안 발생할 것으로 예상되는 정가 매출을 계산한 값입니다.")
+
     normal_sales = df_paid[df_paid["상품 유형"] == "정가"]["합계금액"].sum()
     st.metric("✅ 정가 매출", f"{normal_sales:,.0f} 원")
     event_df = df_paid[df_paid["이벤트명"].notnull()]
@@ -250,8 +253,18 @@ elif page == "📈 매출":
         event_sales_detail = event_df.groupby(["이벤트명", "상품 유형"])["합계금액"].sum().reset_index()
         # 각 이벤트별 총 매출 metric 표시
         event_total_sales = event_df.groupby("이벤트명")["합계금액"].sum().reset_index()
+
+        normal_df = df_paid[df_paid["상품 유형"] == "정가"]
         for _, row in event_total_sales.iterrows():
-            st.metric(f"{row['이벤트명']} 이벤트 매출", f"{row['합계금액']:,.0f} 원")
+            event_name = row["이벤트명"]
+            actual_event_sales = row["합계금액"]
+            estimated_normal_sales , event_duration = calc_normal_sales_estimate(event_name, normal_df, min_date, max_date)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric(f"{event_name} 이벤트 매출 - {event_duration}일간 진행", f"{actual_event_sales:,.0f} 원",delta=f"{actual_event_sales - estimated_normal_sales:,.0f} 원")
+            with col2:
+                st.metric(f"동일 기간 정가 매출 추정치", f"{estimated_normal_sales:,.0f} 원")
+
         # 스택형 바 차트: "이벤트"는 주황색, "이벤트 의심"은 빨간색으로 표시
         chart_event = alt.Chart(event_sales_detail).mark_bar().encode(
             x=alt.X("이벤트명:N", title="이벤트명"),
