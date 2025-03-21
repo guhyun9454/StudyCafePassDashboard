@@ -246,7 +246,8 @@ elif page == "📈 매출":
     st.caption("💡 정가 매출 추정치는 전체 기간 중 이벤트가 없는 날의 평균 정가 매출을 기준으로, 해당 이벤트 기간 동안 발생할 것으로 예상되는 정가 매출을 계산한 값입니다.")
 
     normal_sales = df_paid[df_paid["상품 유형"] == "정가"]["합계금액"].sum()
-    st.metric("✅ 정가 매출", f"{normal_sales:,.0f} 원")
+    col1, col2 = st.columns(2)
+
     event_df = df_paid[df_paid["이벤트명"].notnull()]
     if not event_df.empty:
         # 그룹별 매출 데이터 생성: 이벤트명, 상품 유형, 합계금액 합계
@@ -255,11 +256,15 @@ elif page == "📈 매출":
         event_total_sales = event_df.groupby("이벤트명")["합계금액"].sum().reset_index()
 
         normal_df = df_paid[df_paid["상품 유형"] == "정가"]
-        for _, row in event_total_sales.iterrows():
+        for i, (_, row) in enumerate(event_total_sales.iterrows()):
             event_name = row["이벤트명"]
             actual_event_sales = row["합계금액"]
-            estimated_normal_sales , event_duration = calc_normal_sales_estimate(event_name, normal_df, min_date, max_date)
-            col1, col2 = st.columns(2)
+            estimated_normal_sales , event_duration, avg_normal_sales_per_day, non_event_days = calc_normal_sales_estimate(event_name, normal_df, min_date, max_date)
+            if i == 0:
+                with col1:
+                    st.metric(f"✅ 정가 매출 - {non_event_days}일간 발생", f"{normal_sales:,.0f} 원")
+                with col2:
+                    st.metric("📊 일주일 평균 정가 매출", f"{avg_normal_sales_per_day * 7:,.0f} 원")
             with col1:
                 st.metric(f"{event_name} 이벤트 매출 - {event_duration}일간 진행", f"{actual_event_sales:,.0f} 원",delta=f"{actual_event_sales - estimated_normal_sales:,.0f} 원")
             with col2:

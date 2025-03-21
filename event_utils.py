@@ -58,6 +58,7 @@ event_configs = {
         },
         "기간권": {
             "4주": {"이벤트상품": "5주", "price": [150000, 250000]},
+            "12주": {"이벤트상품": "15주", "price": [3 * 150000, 3 * 250000]},
         },
     },
 }
@@ -222,4 +223,4 @@ def calc_normal_sales_estimate(event_name, normal_df, overall_start_date, overal
     # 해당 이벤트 기간에 해당하는 예상 정가 매출 산출
     estimated_normal_sales = avg_normal_sales_per_day * event_duration
 
-    return estimated_normal_sales , event_duration
+    return estimated_normal_sales , event_duration, avg_normal_sales_per_day, non_event_days
