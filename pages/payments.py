@@ -250,45 +250,54 @@ elif page == "📈 매출":
 
     event_df = df_paid[df_paid["이벤트명"].notnull()]
     if not event_df.empty:
-        # 그룹별 매출 데이터 생성: 이벤트명, 상품 유형, 합계금액 합계
+        # 이벤트별 상세 매출 데이터
         event_sales_detail = event_df.groupby(["이벤트명", "상품 유형"])["합계금액"].sum().reset_index()
-        # 각 이벤트별 총 매출 metric 표시
         event_total_sales = event_df.groupby("이벤트명")["합계금액"].sum().reset_index()
 
+        # 전체 정가 매출 요약 출력 (한 번만)
         normal_df = df_paid[df_paid["상품 유형"] == "정가"]
+        if not normal_df.empty:
+            normal_sales = normal_df["합계금액"].sum()
+            total_days = (max_date - min_date).days + 1
+            avg_normal_sales_per_day = normal_sales / total_days
+            with col1:
+                st.metric(f"✅ 정가 매출 - {total_days}일간 발생", f"{normal_sales:,.0f} 원")
+            with col2:
+                st.metric("📊 일주일 평균 정가 매출", f"{avg_normal_sales_per_day * 7:,.0f} 원")
+
+        # 이벤트 매출 표시 (delta는 유지)
         for i, (_, row) in enumerate(event_total_sales.iterrows()):
             event_name = row["이벤트명"]
             actual_event_sales = row["합계금액"]
-            estimated_normal_sales , event_duration, avg_normal_sales_per_day, non_event_days = calc_normal_sales_estimate(event_name, normal_df, min_date, max_date)
-            if i == 0:
-                with col1:
-                    st.metric(f"✅ 정가 매출 - {non_event_days}일간 발생", f"{normal_sales:,.0f} 원")
-                with col2:
-                    st.metric("📊 일주일 평균 정가 매출", f"{avg_normal_sales_per_day * 7:,.0f} 원")
-            with col1:
-                st.metric(f"{event_name} 이벤트 매출 - {event_duration}일간 진행", f"{actual_event_sales:,.0f} 원",delta=f"{actual_event_sales - estimated_normal_sales:,.0f} 원")
-            with col2:
-                st.metric(f"동일 기간 정가 매출 추정치", f"{estimated_normal_sales:,.0f} 원")
 
-        # 스택형 바 차트: "이벤트"는 주황색, "이벤트 의심"은 빨간색으로 표시
+            estimated_normal_sales, event_duration, _, _ = calc_normal_sales_estimate(
+                event_name, normal_df, min_date, max_date
+            )
+
+            target_col = col1 if i % 2 == 0 else col2
+            with target_col:
+                st.metric(
+                    f"{event_name} 이벤트 매출 - {event_duration}일간 진행",
+                    f"{actual_event_sales:,.0f} 원",
+                    delta=f"{actual_event_sales - estimated_normal_sales:,.0f} 원"
+                )
         chart_event = alt.Chart(event_sales_detail).mark_bar().encode(
             x=alt.X("이벤트명:N", title="이벤트명"),
             y=alt.Y("합계금액:Q", title="매출 (원)"),
-            color=alt.Color("상품 유형:N",
-                            scale=alt.Scale(domain=["이벤트", "이벤트 의심"],
-                                            range=["orange", "red"]),
-                            title="상품 유형"),
+            color=alt.Color("상품 유형:N", scale=alt.Scale(domain=["이벤트", "이벤트 의심"], range=["orange", "red"]), title="상품 유형"),
             tooltip=["이벤트명", "상품 유형", "합계금액"]
         ).properties(width=500, height=400)
         st.altair_chart(chart_event)
+
+
     else:
         st.warning("🚨 이벤트 매출 데이터가 없습니다.")
 
     suspected_df = df_paid[df_paid["상품 유형"] == "이벤트 의심"]
     if not suspected_df.empty:
-        suspected_counts = suspected_df.groupby("이벤트명").size().reset_index(name="의심회원수")
-        for _, row in suspected_counts.iterrows():
-            st.warning(f"{row['이벤트명']} 이벤트 의심 회원 수: {row['의심회원수']} 명")
+        # suspected_counts = suspected_df.groupby("이벤트명").size().reset_index(name="의심회원수")
+        # for _, row in suspected_counts.iterrows():
+        #     st.warning(f"{row['이벤트명']} 이벤트 의심 회원 수: {row['의심회원수']} 명")
 
         st.subheader("📌 이벤트 의심 상세 내역")
         st.dataframe(suspected_df[cols_to_show])
