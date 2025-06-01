@@ -28,7 +28,7 @@ if st.sidebar.button("🔄 다시 업로드하기"):
 st.sidebar.title("📌 메뉴")
 page = st.sidebar.radio(
     "이동할 페이지를 선택하세요",
-    ["📈 매출", "📅 기간권", "🏆 회원별 결제 금액","데이터 보기"]
+    ["📈 매출", "📊 월별 통계", "🎉 이벤트 현황", "📅 기간권", "🏆 회원별 결제 금액","데이터 보기"]
 )
 
 
@@ -211,7 +211,8 @@ elif page == "📈 매출":
     
     # 📌 "구분"별 매출 표시
     st.divider()
-    st.title("📌 종류별 매출 현황")
+    st.subheader("📌 종류별 매출 현황")
+    
     # 📌 "구분"별 매출 계산
     category_sales = df_paid.groupby("구분")["합계금액"].sum()  
     col3, col4 = st.columns(2)
@@ -227,28 +228,147 @@ elif page == "📈 매출":
     category_sales["퍼센트"] = category_sales["퍼센트"].round(1)  # 소수점 1자리로 표시
 
     # 📌 "구분"별 매출 파이 차트
+    st.subheader("📊 매출 구성비")
     pie_chart = alt.Chart(category_sales).mark_arc(innerRadius=50).encode(
         theta="합계금액:Q",
         color="구분:N",
         tooltip=["구분", "합계금액", "퍼센트"]
     ).properties(width=500, height=400)
 
-
     # 📌 차트 표시 (파이 차트 + 퍼센트 값)
     st.altair_chart(pie_chart)
-
-
-    # 이벤트별 매출 표시 (스택형 바 차트: 이벤트와 이벤트 의심 구분)
     
-    st.divider()
-    st.title("📌 이벤트별 매출 현황")
-    st.caption("🔍 기간권 (2주, 4주 등), 정액시간권(50시간, 100시간 등)만 집계됩니다.")
-    st.caption("💡 정가 매출 추정치는 전체 기간 중 이벤트가 없는 날의 평균 정가 매출을 기준으로, 해당 이벤트 기간 동안 발생할 것으로 예상되는 정가 매출을 계산한 값입니다.")
+    # 📌 일별 매출 추이
+    st.subheader("📈 일별 매출 추이")
+    
+    # 일별 매출 계산
+    daily_sales = df_paid.groupby(df_paid["주문일시"].dt.date)["합계금액"].sum().reset_index()
+    daily_sales.columns = ["날짜", "매출"]
+    daily_sales["날짜"] = pd.to_datetime(daily_sales["날짜"])
+    
+    # 일별 매출 차트
+    daily_chart = alt.Chart(daily_sales).mark_line(point=True).encode(
+        x=alt.X("날짜:T", title="날짜"),
+        y=alt.Y("매출:Q", title="매출 (원)"),
+        tooltip=["날짜:T", "매출:Q"]
+    ).properties(width=800, height=400)
+    
+    st.altair_chart(daily_chart)
 
+
+# 📊 월별 통계 페이지
+elif page == "📊 월별 통계":
+    st.title("📊 월별 통계")
+
+    # 📌 월별 데이터 준비
+    df_paid["연월"] = df_paid["주문일시"].dt.to_period("M")
+
+    # 📌 월별 통계 계산 (원본 "구분" 컬럼 사용)
+    monthly_stats = df_paid.groupby(["연월", "구분"]).agg({
+        "합계금액": ["sum", "count"]
+    }).reset_index()
+
+    # 컬럼명 정리
+    monthly_stats.columns = ["연월", "구분", "매출", "건수"]
+    monthly_stats["연월_str"] = monthly_stats["연월"].astype(str)
+
+    # 📌 필터링 옵션
+    st.sidebar.subheader("📌 월별 통계 옵션")
+
+    # 연도 선택만 유지
+    years = sorted(df_paid["주문일시"].dt.year.unique())
+    selected_year = st.sidebar.selectbox("📅 연도 선택", ["전체"] + list(years))
+
+    if selected_year != "전체":
+        monthly_stats = monthly_stats[monthly_stats["연월"].dt.year == selected_year]
+        df_filtered = df_paid[df_paid["주문일시"].dt.year == selected_year]
+    else:
+        df_filtered = df_paid
+
+    # 📌 월별 총 매출 계산 (매출 추이 그래프용)
+    monthly_total = monthly_stats.groupby("연월_str")["매출"].sum().reset_index()
+    monthly_total["최종정산금액"] = monthly_total["매출"] * 0.912  # 8.8% 수수료 제외
+
+    # 📈 월별 매출 추이 그래프
+    st.subheader("📈 월별 매출 추이")
+    
+    if not monthly_total.empty:
+        # 매출과 최종 정산 금액을 함께 표시할 데이터 준비
+        monthly_melted = monthly_total.melt(
+            id_vars=["연월_str"], 
+            value_vars=["매출", "최종정산금액"],
+            var_name="구분", 
+            value_name="금액"
+        )
+        
+        # 선 그래프로 매출 추이 표시
+        trend_chart = alt.Chart(monthly_melted).mark_line(point=True).encode(
+            x=alt.X("연월_str:N", title="월", sort=None),
+            y=alt.Y("금액:Q", title="금액 (원)"),
+            color=alt.Color("구분:N", 
+                           scale=alt.Scale(domain=["매출", "최종정산금액"], 
+                                         range=["blue", "green"]),
+                           title="구분"),
+            tooltip=["연월_str:N", "구분:N", alt.Tooltip("금액:Q", format=",.0f")]
+        ).properties(width=800, height=400, title="월별 매출 및 최종 정산 금액 추이")
+
+        st.altair_chart(trend_chart)
+        
+        # 📊 월별 매출 요약 통계
+        col1, col2, col3 = st.columns(3)
+        
+        total_revenue = monthly_total["매출"].sum()
+        total_final = monthly_total["최종정산금액"].sum()
+        avg_monthly = monthly_total["매출"].mean()
+        
+        with col1:
+            st.metric("총 매출", f"{total_revenue:,.0f} 원")
+        with col2:
+            st.metric("총 최종 정산 금액", f"{total_final:,.0f} 원")
+        with col3:
+            st.metric("월평균 매출", f"{avg_monthly:,.0f} 원")
+
+    # 📊 월별 매출 현황
+    st.subheader("📈 월별 매출 현황")
+
+    if not monthly_stats.empty:
+        # 매출 막대 그래프
+        revenue_chart = alt.Chart(monthly_stats).mark_bar().encode(
+            x=alt.X("연월_str:N", title="월", sort=None),
+            y=alt.Y("매출:Q", title="매출 (원)"),
+            color=alt.Color("구분:N", title="상품 유형"),
+            tooltip=["연월_str:N", "구분:N", "매출:Q", "건수:Q"]
+        ).properties(width=800, height=400, title="월별 매출")
+
+        st.altair_chart(revenue_chart)
+        
+        # 📊 월별 판매 건수 그래프
+        st.subheader("📊 월별 판매 건수")
+        
+        count_chart = alt.Chart(monthly_stats).mark_bar().encode(
+            x=alt.X("연월_str:N", title="월", sort=None),
+            y=alt.Y("건수:Q", title="판매 건수"),
+            color=alt.Color("구분:N", title="상품 유형"),
+            tooltip=["연월_str:N", "구분:N", "건수:Q", "매출:Q"]
+        ).properties(width=800, height=400, title="월별 판매 건수")
+
+        st.altair_chart(count_chart)
+
+    else:
+        st.warning("🚨 선택된 조건에 해당하는 데이터가 없습니다.")
+
+# 🎉 이벤트 현황 페이지
+elif page == "🎉 이벤트 현황":
+    st.title("🎉 이벤트 현황")
+
+    st.caption("🔍 기간권 (2주, 4주 등), 정액시간권(50시간, 100시간 등)만 집계됩니다.")
+
+    # 📌 이벤트별 매출 표시
     normal_sales = df_paid[df_paid["상품 유형"] == "정가"]["합계금액"].sum()
     col1, col2 = st.columns(2)
 
     event_df = df_paid[df_paid["이벤트명"].notnull()]
+
     if not event_df.empty:
         # 이벤트별 상세 매출 데이터
         event_sales_detail = event_df.groupby(["이벤트명", "상품 유형"])["합계금액"].sum().reset_index()
@@ -260,6 +380,7 @@ elif page == "📈 매출":
             normal_sales = normal_df["합계금액"].sum()
             total_days = (max_date - min_date).days + 1
             avg_normal_sales_per_day = normal_sales / total_days
+            
             with col1:
                 st.metric(f"✅ 정가 매출 - {total_days}일간 발생", f"{normal_sales:,.0f} 원")
             with col2:
@@ -281,28 +402,33 @@ elif page == "📈 매출":
                     f"{actual_event_sales:,.0f} 원",
                     delta=f"{actual_event_sales - estimated_normal_sales:,.0f} 원"
                 )
+        
+        # 📌 이벤트별 매출 차트
+        st.subheader("📈 이벤트별 매출 비교")
         chart_event = alt.Chart(event_sales_detail).mark_bar().encode(
             x=alt.X("이벤트명:N", title="이벤트명"),
             y=alt.Y("합계금액:Q", title="매출 (원)"),
-            color=alt.Color("상품 유형:N", scale=alt.Scale(domain=["이벤트", "이벤트 의심"], range=["orange", "red"]), title="상품 유형"),
+            color=alt.Color("상품 유형:N", 
+                           scale=alt.Scale(domain=["이벤트", "이벤트 의심"], 
+                                         range=["orange", "red"]), 
+                           title="상품 유형"),
             tooltip=["이벤트명", "상품 유형", "합계금액"]
-        ).properties(width=500, height=400)
+        ).properties(width=800, height=400)
         st.altair_chart(chart_event)
-
 
     else:
         st.warning("🚨 이벤트 매출 데이터가 없습니다.")
 
+    # 📌 이벤트 의심 회원 분석
+    
     suspected_df = df_paid[df_paid["상품 유형"] == "이벤트 의심"]
     if not suspected_df.empty:
-        # suspected_counts = suspected_df.groupby("이벤트명").size().reset_index(name="의심회원수")
-        # for _, row in suspected_counts.iterrows():
-        #     st.warning(f"{row['이벤트명']} 이벤트 의심 회원 수: {row['의심회원수']} 명")
 
-        st.subheader("📌 이벤트 의심 상세 내역")
-        st.dataframe(suspected_df[cols_to_show])
+        st.subheader("📋 이벤트 의심 상세 내역")
+        st.dataframe(suspected_df[cols_to_show], use_container_width=True)
+    else:
+        st.success("✅ 이벤트 의심 회원이 없습니다.")
 
-# 🏆 회원별 결제 금액 페이지
 elif page == "🏆 회원별 결제 금액":
     st.title("🏆 회원별 총 결제 금액 TOP 10")
 
