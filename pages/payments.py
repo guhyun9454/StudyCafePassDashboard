@@ -133,17 +133,40 @@ if page == "📅 기간권":
     else:
         groups = []
 
+    # ✨ 이벤트 기간(background) 추가 표시
+    from event_utils import event_configs
+    for evt_name, config in event_configs.items():
+        evt_start = config["이벤트기간"][0].date().isoformat()
+        evt_end = config["이벤트기간"][1].date().isoformat()
+        timeline_events.append({
+            "id": f"event_{evt_name}",
+            "content": evt_name,
+            "start": evt_start,
+            "end": evt_end,
+            "type": "background",
+            "style": "background-color: rgba(124, 128, 0, 0.15);"
+        })
+
     # 📌 D-Day가 0 이상인 회원 수 표시
     st.metric("기간 남은 회원 수", f"{future_count} 명")
 
     # 📌 타임라인 표시
     if timeline_events:
-        timeline = st_timeline(timeline_events, groups=groups if group_by_user else [], options={'orientation':'top'}, height="600px")
+        # ℹ️ 타임라인 높이를 2배(1200px)로 늘리고, 이벤트 기간(background)도 함께 표시합니다.
+        timeline = st_timeline(
+            timeline_events,
+            groups=groups if group_by_user else [],
+            options={'orientation': 'top'},
+            height="1000px"
+        )
 
-        # 선택된 ID를 기반으로 데이터 출력
         if timeline:
             selected_id = timeline["id"]
-            selected_row = df_paid[df_paid["No"] == selected_id]
+            # 이벤트 기간(background) 등 정수가 아닌 ID는 무시
+            if isinstance(selected_id, int):
+                selected_row = df_paid[df_paid["No"] == selected_id]
+            else:
+                selected_row = pd.DataFrame()
 
             if not selected_row.empty:
                 selected_row = selected_row.iloc[0]
