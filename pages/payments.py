@@ -38,9 +38,13 @@ df = st.session_state["df"]
 # 날짜 변환
 df["주문일시"] = pd.to_datetime(df["주문일시"], errors="coerce")
 
-# 📌 "결제완료" 상태의 주문만 필터링
-df_paid = df[(df["주문상태"] == "결제완료") & (df["이름"] != "관리자")]
-df_paid[["시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"]] = df.apply(process_order_row, axis=1)
+# 📌 "결제완료" 상태의 주문만 필터링 (copy()로 명시적 복사하여 SettingWithCopyWarning 방지)
+df_paid = df[(df["주문상태"] == "결제완료") & (df["이름"] != "관리자")].copy()
+
+# SettingWithCopy 경고를 피하기 위해 df_paid 자체에 apply 적용 후 결과를 대입합니다.
+df_paid.loc[:, [
+    "시간", "기간", "상품 유형", "이벤트명", "시작일", "종료일", "남은일수", "D-Day", "만료여부"
+]] = df_paid.apply(process_order_row, axis=1)
 
 # 📌 데이터의 첫 주문일시 & 마지막 주문일시 감지
 min_date = df["주문일시"].min().date() if not df["주문일시"].isna().all() else None
