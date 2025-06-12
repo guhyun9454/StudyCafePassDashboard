@@ -116,7 +116,7 @@ if page == "📅 기간권":
                     "end": end_date,
                     "d_day_value": d_day_value,
                     "weeks" : weeks,
-                    "style": "background-color: pink; color: black; border-color: red" if end_date_obj < today else ""
+                    "style": "background-color: pink; color: black; border-color: red" if end_date_obj < today else "background-color: #caf0f8; color: black; border-color: #caf0f8"
                 }
                 timeline_events.append(event)
                 valid_users.add(row["이름"])  # ✅ 실제 표시할 데이터가 있는 사용자만 그룹으로 포함
@@ -152,7 +152,7 @@ if page == "📅 기간권":
             "start": evt_start,
             "end": evt_end,
             "type": "background",
-            "style": "background-color: rgba(124, 128, 0, 0.15);"
+            "style": "background-color: rgba(144, 224, 239, 0.15);"
         })
 
     # 📌 D-Day가 0 이상인 회원 수 표시
@@ -191,6 +191,10 @@ if page == "📅 기간권":
                 st.sidebar.markdown(f"**📝 주문명:** {selected_row['주문명']}")
                 st.sidebar.markdown(f"**💳 결제구분:** {selected_row['결제구분']}")
                 st.sidebar.markdown(f"**🛒 주문유형:** {selected_row['주문유형']}")
+                # 이벤트 여부 정보 표시
+                st.sidebar.markdown(f"**🎯 이벤트 여부:** {selected_row['상품 유형']}")
+                if pd.notnull(selected_row.get('이벤트명')):
+                    st.sidebar.markdown(f"**🏷️ 이벤트명:** {selected_row['이벤트명']}")
             else:
                 st.sidebar.warning("🚨 선택한 주문 정보를 찾을 수 없습니다.")
     else:
