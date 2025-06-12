@@ -64,9 +64,7 @@ if page == "📅 기간권":
     # 📅 현재 날짜
     today = datetime.today().date()
 
-    # ✅ "같은 사람 한 줄에 보기" 활성화 여부 확인
-    st.sidebar.subheader("📌 타임라인 옵션")
-    group_by_user = st.sidebar.checkbox("같은 사람 한 줄에 보기", value=True)
+    # 📌 사용자별 한 줄 표시를 고정하고, 관련 체크박스를 제거했습니다.
     show_expired = st.sidebar.checkbox("만료된 기간권 보기", value=False)
     st.sidebar.divider()
     search_name = st.sidebar.text_input("🔍 회원 검색 (이름 입력)", "")
@@ -126,7 +124,7 @@ if page == "📅 기간권":
     # ✅ D-Day 값이 작은 순으로 이벤트 정렬 (남은 기간이 적은 회원이 위쪽에 보이도록)
     timeline_events.sort(key=lambda x: x["d_day_value"])
 
-    if group_by_user and valid_users:
+    if valid_users:
         # ✅ 사용자별 최소 D-Day 값을 기준으로 그룹을 정렬
         user_min_dday = {}
         for ev in timeline_events:
@@ -165,7 +163,7 @@ if page == "📅 기간권":
         # ℹ️ 타임라인 높이를 2배(1200px)로 늘리고, 이벤트 기간(background)도 함께 표시합니다.
         timeline = st_timeline(
             timeline_events,
-            groups=groups if group_by_user else [],
+            groups=groups,
             options={'orientation': 'top'},
             height="1000px"
         )
