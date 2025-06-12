@@ -412,14 +412,28 @@ elif page == "📊 월별 통계":
         # 📊 월별 판매 건수 그래프
         st.subheader("📊 월별 판매 건수")
         
-        count_chart = alt.Chart(monthly_stats).mark_bar().encode(
-            x=alt.X("연월_str:N", title="월", sort=None),
-            y=alt.Y("건수:Q", title="판매 건수"),
-            color=alt.Color("구분:N", title="상품 유형"),
-            tooltip=["연월_str:N", "구분:N", "건수:Q", "매출:Q"]
-        ).properties(width=800, height=400, title="월별 판매 건수")
+        # 🔍 상품 유형 필터 (st.pills)
+        pill_options = sorted(monthly_stats["구분"].unique().tolist())
+        selected_categories = st.pills(
+            "표시할 상품 유형 선택",
+            options=pill_options,
+            selection_mode="multi",
+            default=pill_options
+        )
 
-        st.altair_chart(count_chart)
+        filtered_monthly_stats = monthly_stats[monthly_stats["구분"].isin(selected_categories)]
+
+        if filtered_monthly_stats.empty:
+            st.info("❗ 표시할 상품 유형을 선택해주세요.")
+        else:
+            count_chart = alt.Chart(filtered_monthly_stats).mark_line(point=True).encode(
+                x=alt.X("연월_str:N", title="월", sort=None),
+                y=alt.Y("건수:Q", title="판매 건수"),
+                color=alt.Color("구분:N", title="상품 유형"),
+                tooltip=["연월_str:N", "구분:N", "건수:Q", "매출:Q"]
+            ).properties(width=800, height=400, title="월별 판매 건수")
+            
+            st.altair_chart(count_chart)
 
     else:
         st.warning("🚨 선택된 조건에 해당하는 데이터가 없습니다.")
