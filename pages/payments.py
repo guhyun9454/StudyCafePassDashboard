@@ -4,6 +4,7 @@ import altair as alt
 from streamlit_timeline import st_timeline
 import re
 from datetime import datetime
+import calendar
 
 from events import process_order_row
 from utils import categorize_dday, init_page
@@ -289,6 +290,39 @@ elif page == "📊 월별 통계":
     monthly_total = monthly_stats.groupby("연월_str")["매출"].sum().reset_index()
     monthly_total["최종정산금액"] = monthly_total["매출"] * 0.912  # 8.8% 수수료 제외
 
+    # 📌 현재 월 예상 매출 및 실제 매출 계산
+    today = datetime.today()
+    current_year_month_str = today.strftime("%Y-%m")
+    current_period = pd.Period(current_year_month_str)
+    current_month_df = df_filtered[df_filtered["주문일시"].dt.to_period("M") == current_period]
+
+    current_actual_point = None
+    if not current_month_df.empty:
+        current_sales = current_month_df["합계금액"].sum()
+        elapsed_days = today.day
+        total_days_in_month = calendar.monthrange(today.year, today.month)[1]
+        if elapsed_days > 0:
+            predicted_sales = (current_sales / elapsed_days) * total_days_in_month
+            predicted_settlement = predicted_sales * 0.912
+
+            if (monthly_total["연월_str"] == current_year_month_str).any():
+                monthly_total.loc[monthly_total["연월_str"] == current_year_month_str, "매출"] = predicted_sales
+                monthly_total.loc[monthly_total["연월_str"] == current_year_month_str, "최종정산금액"] = predicted_settlement
+            else:
+                monthly_total = pd.concat([monthly_total, pd.DataFrame({
+                    "연월_str": [current_year_month_str],
+                    "매출": [predicted_sales],
+                    "최종정산금액": [predicted_settlement]
+                })], ignore_index=True)
+
+            current_actual_point = {
+                "연월_str": current_year_month_str,
+                "금액": current_sales
+            }
+
+    # 월별 정렬
+    monthly_total = monthly_total.sort_values("연월_str")
+
     # 📈 월별 매출 추이 그래프
     st.subheader("📈 월별 매출 추이")
     
@@ -301,8 +335,13 @@ elif page == "📊 월별 통계":
             value_name="금액"
         )
         
-        # 선 그래프로 매출 추이 표시
-        trend_chart = alt.Chart(monthly_melted).mark_line(point=True).encode(
+        # 기본 선 그래프 (실선: 과거 월, 점선: 전월→현재월)
+        prev_period = current_period - 1
+        prev_month_str = str(prev_period)
+
+        # ✅ 실선: 1~전월 데이터
+        actual_melted = monthly_melted[monthly_melted["연월_str"] <= prev_month_str]
+        solid_line = alt.Chart(actual_melted).mark_line(point=True).encode(
             x=alt.X("연월_str:N", title="월", sort=None),
             y=alt.Y("금액:Q", title="금액 (원)"),
             color=alt.Color("구분:N", 
@@ -310,9 +349,37 @@ elif page == "📊 월별 통계":
                                          range=["blue", "green"]),
                            title="구분"),
             tooltip=["연월_str:N", "구분:N", alt.Tooltip("금액:Q", format=",.0f")]
-        ).properties(width=800, height=400, title="월별 매출 및 최종 정산 금액 추이")
+        )
+
+        # ✅ 점선: 전월→현재월(예상) 연결
+        predicted_melted = monthly_melted[monthly_melted["연월_str"].isin([prev_month_str, current_year_month_str])]
+        dashed_line = alt.Chart(predicted_melted).mark_line(point=True, strokeDash=[4,4]).encode(
+            x="연월_str:N",
+            y="금액:Q",
+            color=alt.Color("구분:N", 
+                           scale=alt.Scale(domain=["매출", "최종정산금액"], 
+                                         range=["blue", "green"]),
+                           title="구분"),
+            tooltip=["연월_str:N", "구분:N", alt.Tooltip("금액:Q", format=",.0f")]
+        )
+
+        trend_chart_base = solid_line + dashed_line
+
+        # 현재 월 실제 매출을 빨간 점으로 표시
+        if current_actual_point:
+            point_chart = alt.Chart(pd.DataFrame([current_actual_point])).mark_point(
+                size=150, color="red"
+            ).encode(
+                x="연월_str:N",
+                y="금액:Q",
+                tooltip=["연월_str:N", alt.Tooltip("금액:Q", format=",.0f")]
+            )
+            trend_chart = (trend_chart_base + point_chart).properties(width=800, height=400, title="월별 매출 및 최종 정산 금액 추이")
+        else:
+            trend_chart = trend_chart_base.properties(width=800, height=400, title="월별 매출 및 최종 정산 금액 추이")
 
         st.altair_chart(trend_chart)
+        st.caption("💡 실선은 월말까지의 예상 매출·정산 금액이고, 빨간 점은 오늘까지의 실제 누적 매출입니다.")
         
         # 📊 월별 매출 요약 통계
         col1, col2, col3 = st.columns(3)
