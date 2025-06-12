@@ -123,9 +123,19 @@ if page == "📅 기간권":
                 timeline_events.append(event)
                 valid_users.add(row["이름"])  # ✅ 실제 표시할 데이터가 있는 사용자만 그룹으로 포함
 
-    # ✅ 빈 그룹 문제 해결: 유효한 사용자만 그룹으로 포함
+    # ✅ D-Day 값이 작은 순으로 이벤트 정렬 (남은 기간이 적은 회원이 위쪽에 보이도록)
+    timeline_events.sort(key=lambda x: x["d_day_value"])
+
     if group_by_user and valid_users:
-        groups = [{"id": idx, "content": name} for idx, name in enumerate(valid_users)]
+        # ✅ 사용자별 최소 D-Day 값을 기준으로 그룹을 정렬
+        user_min_dday = {}
+        for ev in timeline_events:
+            user_min_dday[ev["name"]] = min(user_min_dday.get(ev["name"], float("inf")), ev["d_day_value"])
+
+        # D-Day 오름차순으로 사용자 정렬
+        sorted_users = sorted(user_min_dday.items(), key=lambda x: x[1])
+
+        groups = [{"id": idx, "content": name} for idx, (name, _) in enumerate(sorted_users)]
         user_id_map = {g["content"]: g["id"] for g in groups}  # ✅ 사용자 이름 → ID 매핑
 
         for event in timeline_events:
