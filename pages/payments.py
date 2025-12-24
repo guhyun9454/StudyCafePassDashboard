@@ -474,6 +474,77 @@ elif page == "📊 월별 통계":
             
             st.altair_chart(count_chart)
 
+        # 📋 표: 월별 총 금액 및 항목별 월별 합계 (구분/결제구분/주문유형)
+        st.subheader("📋 월별 합계 표")
+        df_month = df_filtered.copy()
+        df_month["연월"] = df_month["주문일시"].dt.to_period("M")
+        df_month["연월_str"] = df_month["연월"].astype(str)
+
+        # 1) 월별 총 금액
+        monthly_total_table = (
+            df_month.groupby("연월_str")["합계금액"]
+            .sum()
+            .reset_index()
+            .rename(columns={"연월_str": "연월", "합계금액": "총 금액"})
+            .sort_values("연월")
+        )
+        st.markdown("#### 🧾 월별 총 금액")
+        st.dataframe(
+            monthly_total_table.style.format({"총 금액": "{:,.0f}"}),
+            use_container_width=True
+        )
+
+        # 2) 구분별 월별 합계 금액 (예: 1회시간권, 사물함, 정액시간권, 기간권 등)
+        monthly_by_category = (
+            df_month.pivot_table(
+                index="연월_str",
+                columns="구분",
+                values="합계금액",
+                aggfunc="sum",
+                fill_value=0,
+            )
+            .reset_index()
+            .rename(columns={"연월_str": "연월"})
+            .sort_values("연월")
+        )
+        st.markdown("#### 🗂️ 구분별 월별 합계 금액")
+        _num_cols_cat = monthly_by_category.select_dtypes(include="number").columns
+        st.dataframe(monthly_by_category.style.format({c: "{:,.0f}" for c in _num_cols_cat}), use_container_width=True)
+
+        # 3) 결제구분별 월별 합계 금액 (예: 카드, 현금)
+        monthly_by_payment = (
+            df_month.pivot_table(
+                index="연월_str",
+                columns="결제구분",
+                values="합계금액",
+                aggfunc="sum",
+                fill_value=0,
+            )
+            .reset_index()
+            .rename(columns={"연월_str": "연월"})
+            .sort_values("연월")
+        )
+        st.markdown("#### 💳 결제구분별 월별 합계 금액")
+        _num_cols_pay = monthly_by_payment.select_dtypes(include="number").columns
+        st.dataframe(monthly_by_payment.style.format({c: "{:,.0f}" for c in _num_cols_pay}), use_container_width=True)
+
+        # 4) 주문유형별 월별 합계 금액 (예: 키오스크, 운영PC, 앱)
+        monthly_by_order_type = (
+            df_month.pivot_table(
+                index="연월_str",
+                columns="주문유형",
+                values="합계금액",
+                aggfunc="sum",
+                fill_value=0,
+            )
+            .reset_index()
+            .rename(columns={"연월_str": "연월"})
+            .sort_values("연월")
+        )
+        st.markdown("#### 🛒 주문유형별 월별 합계 금액")
+        _num_cols_ord = monthly_by_order_type.select_dtypes(include="number").columns
+        st.dataframe(monthly_by_order_type.style.format({c: "{:,.0f}" for c in _num_cols_ord}), use_container_width=True)
+
     else:
         st.warning("🚨 선택된 조건에 해당하는 데이터가 없습니다.")
 
